@@ -107,7 +107,7 @@ class DoubleConv(nn.Module):
         return self.layers(x)
 
 class UNetClassifier(nn.Module):
-    def __init__(self, in_channels=1, out_channels=1):
+    def __init__(self, in_channels=1, out_channels=4):
         super(UNetClassifier, self).__init__()
 
         # Encoder
