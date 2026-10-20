@@ -11,6 +11,9 @@ import time
 import matplotlib.pyplot as plt
 from Models.LearningModels import UNetClassifier
 import numpy as np
+import nibabel as nib
+import torch.nn.functional as F
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if not torch.cuda.is_available():
@@ -35,7 +38,7 @@ class Dataset(torch.utils.data.Dataset):
         self.image_path = Path(image_path)
         self.mask_path = Path(mask_path)
 
-        self.image_files = sorted(self.image_path.glob("*.png"))
+        self.image_files = sorted(self.image_path.glob("*.nii.gz"))
         self.to_tensor = transforms.ToTensor()
 
     def __len__(self):
@@ -48,47 +51,55 @@ class Dataset(torch.utils.data.Dataset):
         mask_name = img_path.name.replace("case_", "seg_", 1)
         mask_file = self.mask_path / mask_name
 
-        # Load images
-        image = Image.open(img_path).convert("L")
+        # Load images  
+        image = nib.load(str(img_path)).get_fdata()
+        mask = nib.load(str(mask_file)).get_fdata()
         image = self.to_tensor(image)
-        mask = Image.open(mask_file).convert("L")
-        mask = np.array(mask, dtype=np.uint8)
-        mask = torch.from_numpy((mask // 85).astype(np.int64))
+        
+        mask = torch.from_numpy(mask.astype(np.int64))
 
+        image = F.interpolate(image.unsqueeze(0), size=(256, 128), mode='bilinear', align_corners=False).squeeze(0)
+        mask = F.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size=(256, 128), mode='nearest').squeeze(0).squeeze(0).long()
         return image, mask
 
     
 print("Loading dataset...")
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "Data" / "OASIS"
+DATA_DIR = BASE_DIR / "Data" / "HIP MRI" / "keras_slices_data"
+
+
+train_path = DATA_DIR / "keras_slices_train"
 
 # Training dataset
-OasisTrainset = Dataset(image_path=DATA_DIR / "keras_png_slices_train",mask_path=DATA_DIR / "keras_png_slices_seg_train")
-OasisTrainLoader = torch.utils.data.DataLoader(OasisTrainset, batch_size=16, shuffle=True)
+HipTrainset = Dataset(image_path=DATA_DIR / "keras_slices_train",mask_path=DATA_DIR / "keras_slices_seg_train")
+HipTrainLoader = torch.utils.data.DataLoader(HipTrainset, batch_size=16, shuffle=False)
 
 # Validation dataset
-OasisValset = Dataset(image_path=DATA_DIR / "keras_png_slices_validate",mask_path=DATA_DIR / "keras_png_slices_seg_validate")
-OasisValLoader = torch.utils.data.DataLoader(OasisValset, batch_size=16, shuffle=True)
+HipValset = Dataset(image_path=DATA_DIR / "keras_slices_validate",mask_path=DATA_DIR / "keras_slices_seg_validate")
+HipValLoader = torch.utils.data.DataLoader(HipValset, batch_size=16, shuffle=False)
 
 # Test dataset
-OasisTestset = Dataset(image_path=DATA_DIR / "keras_png_slices_test",mask_path=DATA_DIR / "keras_png_slices_seg_test")
-OasisTestLoader = torch.utils.data.DataLoader(OasisTestset, batch_size=16,shuffle=False)
+HipTestset = Dataset(image_path=DATA_DIR / "keras_slices_test",mask_path=DATA_DIR / "keras_slices_seg_test")
+HipTestLoader = torch.utils.data.DataLoader(HipTestset, batch_size=16,shuffle=False)
 
-print(f"Number of training samples: {len(OasisTrainset)}")
-print(f"Number of validation samples: {len(OasisValset)}")
-print(f"Number of test samples: {len(OasisTestset)}")
-print(f"Batch size: {OasisTrainLoader.batch_size}")
-print(f"Image shape: {OasisTrainset[0][0].shape}")
-print(f"Mask shape: {OasisTrainset[0][1].shape}")
-print(f"Unique mask values: {torch.unique(OasisTrainset[0][1])}")
+print(f"Number of training samples: {len(HipTrainset)}")
+print(f"Number of validation samples: {len(HipValset)}")
+print(f"Number of test samples: {len(HipTestset)}")
+print(f"Batch size: {HipTrainLoader.batch_size}")
+print(f"Number of batches in training set: {len(HipTrainLoader)}")
+print(f"Number of batches in validation set: {len(HipValLoader)}")
+print(f"Number of batches in test set: {len(HipTestLoader)}")
+print(f"Image shape: {HipTrainset[0][0].shape}")
+print(f"Mask shape: {HipTrainset[0][1].shape}")
+print(f"Unique classes in mask: {torch.unique(HipTrainset[0][1])}")
 
 
 #
 # Training Loop
 #
-num_classes = 4
+num_classes = 6
 @torch.no_grad()
-def evaluate_dice(model, loader, device, num_classes=4):
+def evaluate_dice(model, loader, device, num_classes=6):
     model.eval()
 
     intersections = torch.zeros(num_classes, device=device)
@@ -128,7 +139,7 @@ for epoch in range(num_epochs):
     total_loss = 0.0
     time_start = time.time()
 
-    for images, masks in OasisTrainLoader:
+    for images, masks in HipTrainLoader:
         images = images.to(device).float()
         masks = masks.to(device).long()
 
@@ -156,17 +167,17 @@ for epoch in range(num_epochs):
 
     print(
         f"Epoch {epoch + 1}/{num_epochs}, "
-        f"Loss: {total_loss / len(OasisTrainLoader):.4f}, "
+        f"Loss: {total_loss / len(HipTrainLoader):.4f}, "
         f"Time: {time_end - time_start:.2f}s"
     )
-    dice_scores = evaluate_dice(model, OasisValLoader, device, num_classes=4)
+    dice_scores = evaluate_dice(model, HipValLoader, device, num_classes=6)
 
     print("Validation Dice:")
     for class_id, score in enumerate(dice_scores):
         print(f"  Class {class_id}: {score:.4f}")
     print(f"Mean Dice: {sum(dice_scores) / len(dice_scores):.4f}")
 
-    Test_dice_scores = evaluate_dice(model, OasisTestLoader, device, num_classes=4)
+    Test_dice_scores = evaluate_dice(model, HipTestLoader, device, num_classes=6)
     print("Test Dice:")
     for class_id, score in enumerate(Test_dice_scores):
         print(f"  Class {class_id}: {score:.4f}")
