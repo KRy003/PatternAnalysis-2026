@@ -58,7 +58,7 @@ if not torch.cuda.is_available():
     print("CUDA is not available. Using CPU.")
 print("Using device:", device)
 #Configuration
-num_epochs = 20
+num_epochs = 10
 learning_rate = 0.001
 num_classes = 6
 
@@ -100,9 +100,18 @@ for epoch in range(num_epochs):
         # Clear previous gradients
         optimizer.zero_grad()
         # Forward pass
-        predictions = model(images)
+        
+        predictions, aux1, aux2 = model(images)
+        #predictions = model(images)
+        
         # Calculate loss
+        ''' Second Modification Test '''
         loss = criterion(predictions, masks)
+        loss_main = criterion(predictions, masks)
+        loss_aux1 = criterion(aux1, masks)
+        loss_aux2 = criterion(aux2, masks)
+        loss = (loss_main + 0.3*loss_aux1 + 0.2 * loss_aux2)
+
         # Backpropagation
         loss.backward()
         # Update weights

@@ -1,10 +1,27 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 # U-Net Classifier
 '''
 DoubleConv for the U-net architecture is defined here.
 It consists of two convolutional layers, each followed by a ReLU activation function.
+'''
+''' Basic Double Conv
+class DoubleConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.conv_op = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.conv_op(x)
 '''
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -12,7 +29,7 @@ class DoubleConv(nn.Module):
 
         self.conv_op = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
+            #nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
 
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
@@ -65,7 +82,10 @@ U
 '''
 class UNetClassifier(nn.Module):
     def __init__(self, in_channels=1, out_channels=6):
+        
         super().__init__()
+        self.aux1 = nn.Conv2d(128, out_channels, kernel_size=1)
+        self.aux2 = nn.Conv2d(64, out_channels, kernel_size=1)
         self.down1 = DownSample(in_channels, 32)
         self.down2 = DownSample(32, 64)
         self.down3 = DownSample(64, 128)
@@ -89,4 +109,42 @@ class UNetClassifier(nn.Module):
         up2 = self.up2(up1, down2)
         up3 = self.up3(up2, down1)
 
-        return self.output(up3)
+        output = self.output(up3)
+    
+        if self.training:
+            aux1 = self.aux1(up1)
+            aux2 = self.aux2(up2)
+            aux1 = F.interpolate(aux1, size=output.shape[2:], mode="bilinear", align_corners=False)
+            aux2 = F.interpolate(aux2, size=output.shape[2:], mode="bilinear", align_corners=False)
+            return output, aux1, aux2
+        
+        return output
+
+
+
+    ''' Test 1
+    class DoubleConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.conv_op = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            #nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True)
+        )
+
+        self.copy = nn.Conv2d(
+            in_channels, out_channels, kernel_size=1
+            ) if in_channels != out_channels else nn.Identity()
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        residuals = self.copy(x)
+        output = self.conv_op(x)
+        return self.relu(output + residuals)
+    
+    '''
