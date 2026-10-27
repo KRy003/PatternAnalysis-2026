@@ -56,7 +56,7 @@ class AttentionGate(nn.Module):
 DoubleConv for the U-net architecture is defined here.
 It consists of two convolutional layers, each followed by a ReLU activation function.
 '''
-'''
+
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -71,8 +71,8 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.conv_op(x)
-'''
 
+'''
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -93,11 +93,14 @@ class DoubleConv(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        residuals = self.copy(x)
+        # Comment out to test base U-Net
+        #residuals = self.copy(x)
         output = self.conv_op(x)
-        return self.relu(output + residuals)
+        # Comment out to test base U-Net
+        #return self.relu(output + residuals)
+        return self.relu(output)
 
-
+'''
 '''
 DownSample for the U-net architecture is defined here. It consists of a DoubleConv followed by a MaxPool operation.
 The forward method returns both the output of the DoubleConv and the pooled output.
@@ -122,10 +125,12 @@ class UpSample(nn.Module):
         super().__init__()
         self.up = nn.ConvTranspose2d(in_channels, in_channels//2, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels, out_channels)
-        self.attention = AttentionGate(in_channels // 2, in_channels // 2, max(1, in_channels // 4))
+        # Attention
+        #self.attention = AttentionGate(in_channels // 2, in_channels // 2, max(1, in_channels // 4))
     def forward(self, x1, x2):
         x1 = self.up(x1)
-        x2 = self.attention(x2, x1)
+        # Attention
+        #x2 = self.attention(x2, x1)
         x = torch.cat([x2, x1], 1)
         return self.conv(x)
 
@@ -136,8 +141,8 @@ class UNetClassifier(nn.Module):
     def __init__(self, in_channels=1, out_channels=6):
         
         super().__init__()
-        self.aux1 = nn.Conv2d(128, out_channels, kernel_size=1)
-        self.aux2 = nn.Conv2d(64, out_channels, kernel_size=1)
+        #self.aux1 = nn.Conv2d(128, out_channels, kernel_size=1)
+        #self.aux2 = nn.Conv2d(64, out_channels, kernel_size=1)
         self.down1 = DownSample(in_channels, 32)
         self.down2 = DownSample(32, 64)
         self.down3 = DownSample(64, 128)
@@ -162,14 +167,14 @@ class UNetClassifier(nn.Module):
         up3 = self.up3(up2, down1)
 
         output = self.output(up3)
-        
+        '''
         if self.training:
             aux1 = self.aux1(up1)
             aux2 = self.aux2(up2)
             aux1 = F.interpolate(aux1, size=output.shape[2:], mode="bilinear", align_corners=False)
             aux2 = F.interpolate(aux2, size=output.shape[2:], mode="bilinear", align_corners=False)
             return output, aux1, aux2
-            
+            '''
         
         return output
 

@@ -102,15 +102,15 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
 
         # Standard U-Net
-        #predictions = model(images)
-        #loss = criterion(predictions, masks)
+        predictions = model(images)
+        loss = criterion(predictions, masks)
 
         # Deep supervision version instead:
-        predictions, aux1, aux2 = model(images)
-        loss_main = criterion(predictions, masks)
-        loss_aux1 = criterion(aux1, masks)
-        loss_aux2 = criterion(aux2, masks)
-        loss = loss_main + 0.3 * loss_aux1 + 0.2 * loss_aux2
+        #predictions, aux1, aux2 = model(images)
+        #loss_main = criterion(predictions, masks)
+        #loss_aux1 = criterion(aux1, masks)
+        #loss_aux2 = criterion(aux2, masks)
+        #loss = loss_main + 0.3 * loss_aux1 + 0.2 * loss_aux2
 
         loss.backward()
         optimizer.step()
@@ -200,3 +200,7 @@ plt.ylabel('Dice Score')
 plt.title('Dice Scores for Each Class')
 plt.legend()
 plt.show()
+
+''' Parameters Ran '''
+total_parameters = sum(para.numel() for para in model.parameters())
+print(f"Parameters ran on training: {total_parameters}")
