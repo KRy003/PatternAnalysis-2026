@@ -48,7 +48,7 @@ def get_dataloaders():
 
     # Training dataset
     HipTrainset = Dataset(image_path=DATA_DIR / "keras_slices_train",mask_path=DATA_DIR / "keras_slices_seg_train")
-    HipTrainLoader = torch.utils.data.DataLoader(HipTrainset, batch_size=16, shuffle=False)
+    HipTrainLoader = torch.utils.data.DataLoader(HipTrainset, batch_size=16, shuffle=True)
 
     # Validation dataset
     HipValset = Dataset(image_path=DATA_DIR / "keras_slices_validate",mask_path=DATA_DIR / "keras_slices_seg_validate")

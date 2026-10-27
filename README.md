@@ -1,64 +1,54 @@
 # Pattern Analysis
-Pattern Analysis of various datasets by COMP3710 students in 2026 at the University of Queensland.
 
-We create pattern recognition and image processing library for Tensorflow (TF), PyTorch or JAX.
-
-This library is created and maintained by The University of Queensland [COMP3710](https://my.uq.edu.au/programs-courses/course.html?course_code=comp3710) students.
-
-The library includes the following implemented in Tensorflow:
-* fractals 
-* recognition problems
-
-In the recognition folder, you will find many recognition problems solved including:
-* segmentation
-* classification
-* graph neural networks
-* StyleGAN
-* Stable diffusion
-* transformers
-etc.
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 I will attempt the easy target and increase the difficulty as i complete them, the line below will be the final version difficulty that i submit
-Target Difficulty: NO TARGET ATM
+Target Difficulty: Normal
 
 Architecture: Improved U-Net
 
-Easy Implementation:
-1. Project Overview:
-The easy objective is to implement and evaluate a Improved U-Net architecture for the brain MRI scans found in the OASIS
-dataset. The brains are to be split up into 3 seperate categories of matter, Delineating cortical gray matter, white matter, and
-cerebrospinal fluid, and the U-Net must achieve a 90% dice accuracy for each category of matter, (class 0 is anything none brain matter).
+Title: Anatomical Contouring and Radiotherapy Planning.
 
-2. Model Architecture:
-For the easy task the current U-Net architecture looks like the following
-    - Double Convolution: 2x (2dConvultion's followed by a RELU)
-    - Down Sampling: A Double Convultion followed by a 2dmaxpool with stride of 2
-    - Up Sampling: A 2d Convultion Transpose followed by a Double Convultion. The output is also concatenated with the Down Sampled data.
-    - U-NET: 3x (Down Sampling) Followed by a bottleneck (Double Convultion) Followed by 3x (Up Sampling) Followed by a 2d Convultion
+Goal / Target Audience of Program: 
+The goal of the program is to look at MRI images and automatically identify different structures of the body in the scans themselves, which in turns helps save radiotherapists time in needing to identify
+the structures themselves and nearby organs which could be at risk, such as the bladder, rectum and femoral heads etc. This can also be used as a backup verification for the radiotherapists to make sure they're conclusions are similar to the AIs. 
 
-3. Training Configuration:
-    - Framework PyTorch
-    - Optimiser: Adam
-    - Batch Size: 16
-    - Learning Rate: 0.001
-    - Loss Function: Corss-Entropy
+The program is trained on data where it has already been identified for the program and it is then tested to verify the results on a test set. The algorithm itself follows a typical U-Net architecture
+which is a type of neural network designed for image segmentation. For this particular problem there are considered 6 classes which are different unique structures found in the MRI and the goal is to distinguish between each of the classes.
 
-4. Results:
-The output of the easy implemenetation after 10 epochs is the following 
-Epoch 10/10, Loss: 0.0330, Time: 57.29s
-Validation Dice:
-  Class 0: 0.9966
-  Class 1: 0.9236
-  Class 2: 0.9539
-  Class 3: 0.9746
-Mean Dice: 0.9622
-Test Dice:
-  Class 0: 0.9955
-  Class 1: 0.9205
-  Class 2: 0.9502
-  Class 3: 0.9732
-Mean Dice: 0.9598
+Example of base MRI image with whats expected and the output of the code
+![Results comparison](image-1.png)
+Results from Training:
+![Training And Validation loss / Validation Score from training](Loss_and_Dice_Validation-1.png)
+![Individual Class Dice Scores](Class_Dice_Scores-1.png)
 
-5. References
+Parameter 1 (Dice Scores):
+Running the weights gathered from the training data and running the weights against all the images
+i.e test images / validation images / training images
+The score from each individual class was the following
+===== Dice Scores =====
+Dice 0: 0.9972
+Dice 1: 0.9907
+Dice 2: 0.9623
+Dice 3: 0.9724
+Dice 4: 0.9234
+Dice 5: 0.9209
+
+Average Dice Score: 0.9611
+Average Dice Percentage: 96.11%
+
+Parameter 2 (Run Time):
+Running these results fresh gave a processing time of 80.74 milliseconds per image (running just once) however repeated runs showed that time per image actually dropped quite significantly. A second run of predict.py showed it goes to 20.43 milliseconds, and even further testing it can go down to roughly 18.21 (The lowest time after 10 runs). This would obviously change per system however it shows a rough average processing time around 20 millisecond per image.
+
+Parameter 3 (Peak VRam):
+Running the results gave a constant Peak VRAM of 674.42 MB of data per run of predict.py
+
+
+5. AI Disclosure
+The AI that has been used quite a bit in this is the visual studio code auto complete AI and it has been able to
+auto complete alot of my Dataloading file and has helped with the module aswell although i did look up the
+general architecture that a 2D U-net should follow. 
+As for testing the AI code specifically it mostly comes from testing the algorithim all together
+
+6. References
 "UNet - Line by Line Explanation" Jeremy Zhang 2019
 https://medium.com/data-science/unet-line-by-line-explanation-9b191c76baf5
+

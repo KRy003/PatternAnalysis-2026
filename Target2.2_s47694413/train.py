@@ -58,7 +58,7 @@ if not torch.cuda.is_available():
     print("CUDA is not available. Using CPU.")
 print("Using device:", device)
 #Configuration
-num_epochs = 10
+num_epochs = 20
 learning_rate = 0.001
 num_classes = 6
 
@@ -150,6 +150,7 @@ for epoch in range(num_epochs):
         best_val_dice = val_dice_mean_scores[-1]
         save_model(model, Path(__file__).resolve().parent / "unet_normal_model.pth")
 
+torch.save((train_losses, val_losses, train_dice_scores, val_dice_mean_scores, class_scores), Path(__file__).resolve().parent / "training_stats.pth")
 ''' Graphs '''
 # Plot training and validation loss
 plt.figure(figsize=(10, 5))
