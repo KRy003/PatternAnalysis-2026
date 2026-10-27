@@ -20,6 +20,7 @@ Results from Training:
 ![Training And Validation loss / Validation Score from training](Loss_and_Dice_Validation-1.png)
 ![Individual Class Dice Scores](Class_Dice_Scores-1.png)
 
+Basic U-Net Architecture:
 Parameter 1 (Dice Scores):
 Running the weights gathered from the training data and running the weights against all the images
 i.e test images / validation images / training images
@@ -41,6 +42,31 @@ Running these results fresh gave a processing time of 80.74 milliseconds per ima
 Parameter 3 (Peak VRam):
 Running the results gave a constant Peak VRAM of 674.42 MB of data per run of predict.py
 
+Improved U-Net Training
+The first improvement was trying to add residuals to the convolution layer. After 20 epoches of training this
+one addition scored an average of 0.9303 across the test die
+Epoch 20/20, Loss: 0.0252, Time: 64.87s
+Test Dice:
+  Class 0: 0.9971
+  Class 1: 0.9846
+  Class 2: 0.9354
+  Class 3: 0.9627
+  Class 4: 0.8623
+  Class 5: 0.8537
+Mean Dice: 0.9326
+Upon Testing it it showed that the test set it was not as good either
+===== Dice Scores =====
+Dice 0: 0.9953
+Dice 1: 0.9809
+Dice 2: 0.9317
+Dice 3: 0.8233
+Dice 4: 0.8852
+Dice 5: 0.8279
+
+Average Dice Score: 0.9074
+Average Dice Percentage: 90.74%
+Peak VRAM: 738.77 MB
+With increase VRAM and lower Dice Scores it's clear the residual setup currently implemented is not the best
 
 5. AI Disclosure
 The AI that has been used quite a bit in this is the visual studio code auto complete AI and it has been able to

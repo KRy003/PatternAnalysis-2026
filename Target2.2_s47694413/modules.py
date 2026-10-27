@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+
 # U-Net Classifier
 '''
 DoubleConv for the U-net architecture is defined here.
@@ -11,14 +12,23 @@ class DoubleConv(nn.Module):
 
         self.conv_op = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
 
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.ReLU(inplace=True)
         )
 
+        self.copy = nn.Conv2d(
+            in_channels, out_channels, kernel_size=1
+            ) if in_channels != out_channels else nn.Identity()
+
+        self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
-        return self.conv_op(x)
+        residuals = self.copy(x)
+        output = self.conv_op(x)
+        return self.relu(output + residuals)
 
 '''
 DownSample for the U-net architecture is defined here. It consists of a DoubleConv followed by a MaxPool operation.
