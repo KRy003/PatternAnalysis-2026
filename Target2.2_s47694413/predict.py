@@ -48,35 +48,65 @@ def show_predictions(image, mask, prediction):
     plt.axis('off')
 
 def run_weights_on_data(dataloader, device, model, num_classes, intersections, pred_counts, mask_counts):
-    with torch.no_grad():
-        start = time.perf_counter()
-        j = 0
+    model.eval()
+    total_inference_time = 0.0
+    total_images = 0
+    with torch.inference_mode():
         for i, (images, masks) in enumerate(dataloader):
-            j += j + 1
+
             images = images.to(device).float()
             masks = masks.to(device).long()
 
+            # Ensure previous GPU operations are complete
+            if device.type == "cuda":
+                torch.cuda.synchronize()
+
+            start = time.perf_counter()
+            # Forward pass
             logits = model(images)
+
+            if device.type == "cuda":
+                torch.cuda.synchronize()
+
+            end = time.perf_counter()
+
+            total_inference_time += end - start
+            total_images += images.size(0)
+
+            # Convert logits to predicted classes
             predictions = torch.argmax(logits, dim=1)
 
+            # Accumulate Dice statistics
             for class_id in range(num_classes):
                 pred_class = predictions == class_id
                 mask_class = masks == class_id
 
-                intersections[class_id] += (pred_class & mask_class).sum()
+                intersections[class_id] += (
+                    pred_class & mask_class
+                ).sum()
+
                 pred_counts[class_id] += pred_class.sum()
                 mask_counts[class_id] += mask_class.sum()
-        
+
+            # Visualize only the first two batches
             if i < 2:
-                # Move tensors to CPU and convert to numpy arrays for visualization
                 images_np = images.cpu().numpy()
                 masks_np = masks.cpu().numpy()
                 predictions_np = predictions.cpu().numpy()
-                show_predictions(images_np[0], masks_np[0], predictions_np[0])
-        torch.cuda.synchronize()
-        total_time = time.perf_counter() - start
-        ''' Average Time '''
-        print(f"Average time to process each image: {total_time/100 * 1000:.2f} ms")
+
+                show_predictions(
+                    images_np[0],
+                    masks_np[0],
+                    predictions_np[0]
+                )
+
+    # Average inference latency per image
+    average_time = total_inference_time / total_images
+
+    print(
+        f"Average inference time per image: "
+        f"{average_time * 1000:.2f} ms"
+    )
         
 
 '''
@@ -101,8 +131,8 @@ torch.cuda.reset_peak_memory_stats()
 ''' 
 Running Weights 
 '''
-
-run_weights_on_data(hip_val_loader, device, model, num_classes, intersections, pred_counts, mask_counts)
+with torch.inference_mode():
+    run_weights_on_data(hip_test_loader, device, model, num_classes, intersections, pred_counts, mask_counts)
 
 plt.show()
 

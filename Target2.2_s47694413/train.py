@@ -94,70 +94,80 @@ for epoch in range(num_epochs):
     total_loss = 0.0
     time_start = time.time()
 
+    # TRAINING
     for images, masks in HipTrainLoader:
         images = images.to(device).float()
         masks = masks.to(device).long()
-        # Clear previous gradients
+
         optimizer.zero_grad()
-        # Forward pass
-        
-        predictions, aux1, aux2 = model(images)
+
+        # Standard U-Net
         #predictions = model(images)
-        
-        # Calculate loss
-        ''' Second Modification Test '''
-        loss = criterion(predictions, masks)
+        #loss = criterion(predictions, masks)
+
+        # Deep supervision version instead:
+        predictions, aux1, aux2 = model(images)
         loss_main = criterion(predictions, masks)
         loss_aux1 = criterion(aux1, masks)
         loss_aux2 = criterion(aux2, masks)
-        loss = (loss_main + 0.3*loss_aux1 + 0.2 * loss_aux2)
+        loss = loss_main + 0.3 * loss_aux1 + 0.2 * loss_aux2
 
-        # Backpropagation
         loss.backward()
-        # Update weights
         optimizer.step()
+
         total_loss += loss.item()
+
     time_end = time.time()
-    # Add Training Loss for the epoch
-    train_losses.append(total_loss / len(HipTrainLoader))
+
+    train_loss = total_loss / len(HipTrainLoader)
+    train_losses.append(train_loss)
+
     print(
         f"Epoch {epoch + 1}/{num_epochs}, "
-        f"Loss: {total_loss / len(HipTrainLoader):.4f}, "
+        f"Training Loss: {train_loss:.4f}, "
         f"Time: {time_end - time_start:.2f}s"
     )
-    '''Test the model on the validation set and evaluate Dice scores for each class.'''
-    dice_scores = evaluate_dice(model, HipValLoader, device, num_classes=6)
-    
-    # Save Dice Score for each epoch
-    train_dice_scores.append(sum(dice_scores) / len(dice_scores))
 
-    '''
-    Test the model
-    '''
-    Test_dice_scores = evaluate_dice(model, HipTestLoader, device, num_classes=6)
-    print("Test Dice:")
-    for class_id, score in enumerate(Test_dice_scores):
-        # Save dice score for each class for each epoch
+    # VALIDATION DICE
+    val_dice_scores = evaluate_dice(
+        model, HipValLoader, device, num_classes=6
+    )
+
+    val_mean_dice = sum(val_dice_scores) / len(val_dice_scores)
+    val_dice_mean_scores.append(val_mean_dice)
+
+    print("Validation Dice:")
+    for class_id, score in enumerate(val_dice_scores):
         class_scores[class_id].append(score)
         print(f"  Class {class_id}: {score:.4f}")
-    print(f"Mean Dice: {sum(Test_dice_scores) / len(Test_dice_scores):.4f}")
 
+    print(f"Mean Validation Dice: {val_mean_dice:.4f}")
+
+    # VALIDATION LOSS
     model.eval()
-    total_test_loss = 0.0
-    with torch.no_grad():
-        for images, masks in HipTestLoader:
+    total_val_loss = 0.0
+
+    with torch.inference_mode():
+        for images, masks in HipValLoader:
             images = images.to(device).float()
             masks = masks.to(device).long()
+
             predictions = model(images)
             loss = criterion(predictions, masks)
-            total_test_loss += loss.item()
-    val_losses.append(total_test_loss / len(HipTestLoader))
 
-    val_dice_mean_scores.append(sum(Test_dice_scores) / len(Test_dice_scores))
-    # Save the model if it has the best validation dice score
-    if val_dice_mean_scores[-1] > best_val_dice:
-        best_val_dice = val_dice_mean_scores[-1]
-        save_model(model, Path(__file__).resolve().parent / "unet_normal_model.pth")
+            total_val_loss += loss.item()
+
+    val_loss = total_val_loss / len(HipValLoader)
+    val_losses.append(val_loss)
+
+    # SAVE BEST MODEL BASED ON VALIDATION DICE
+    if val_mean_dice > best_val_dice:
+        best_val_dice = val_mean_dice
+
+        save_model(
+            model,
+            Path(__file__).resolve().parent / "unet_normal_model.pth"
+        )
 
 torch.save((train_losses, val_losses, train_dice_scores, val_dice_mean_scores, class_scores), Path(__file__).resolve().parent / "training_stats.pth")
 ''' Graphs '''

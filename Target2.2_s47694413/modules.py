@@ -2,12 +2,61 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# AttentionGates
+class AttentionGate(nn.Module):
+    def __init__(self, encoder_channels, decoder_channels, intermediate_channels):
+        super().__init__()
+
+        # Transform encoder features
+        self.W_x = nn.Sequential(
+            nn.Conv2d(
+                encoder_channels,
+                intermediate_channels,
+                kernel_size=1
+            ),
+            nn.BatchNorm2d(intermediate_channels)
+        )
+
+        # Transform decoder features
+        self.W_g = nn.Sequential(
+            nn.Conv2d(
+                decoder_channels,
+                intermediate_channels,
+                kernel_size=1
+            ),
+            nn.BatchNorm2d(intermediate_channels)
+        )
+
+        # Produce attention coefficients
+        self.psi = nn.Sequential(
+            nn.Conv2d(
+                intermediate_channels,
+                1,
+                kernel_size=1
+            ),
+            nn.Sigmoid()
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x, g):
+        # x = encoder features
+        # g = decoder gating features
+
+        x1 = self.W_x(x)
+        g1 = self.W_g(g)
+
+        attention = self.relu(x1 + g1)
+        attention = self.psi(attention)
+
+        return x * attention
+
 # U-Net Classifier
 '''
 DoubleConv for the U-net architecture is defined here.
 It consists of two convolutional layers, each followed by a ReLU activation function.
 '''
-''' Basic Double Conv
+'''
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -23,6 +72,7 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.conv_op(x)
 '''
+
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -46,6 +96,7 @@ class DoubleConv(nn.Module):
         residuals = self.copy(x)
         output = self.conv_op(x)
         return self.relu(output + residuals)
+
 
 '''
 DownSample for the U-net architecture is defined here. It consists of a DoubleConv followed by a MaxPool operation.
@@ -71,9 +122,10 @@ class UpSample(nn.Module):
         super().__init__()
         self.up = nn.ConvTranspose2d(in_channels, in_channels//2, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels, out_channels)
-
+        self.attention = AttentionGate(in_channels // 2, in_channels // 2, max(1, in_channels // 4))
     def forward(self, x1, x2):
         x1 = self.up(x1)
+        x2 = self.attention(x2, x1)
         x = torch.cat([x2, x1], 1)
         return self.conv(x)
 
@@ -110,13 +162,14 @@ class UNetClassifier(nn.Module):
         up3 = self.up3(up2, down1)
 
         output = self.output(up3)
-    
+        
         if self.training:
             aux1 = self.aux1(up1)
             aux2 = self.aux2(up2)
             aux1 = F.interpolate(aux1, size=output.shape[2:], mode="bilinear", align_corners=False)
             aux2 = F.interpolate(aux2, size=output.shape[2:], mode="bilinear", align_corners=False)
             return output, aux1, aux2
+            
         
         return output
 
