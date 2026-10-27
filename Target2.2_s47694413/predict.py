@@ -160,3 +160,7 @@ torch.cuda.synchronize()
 peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
 
 print(f"Peak VRAM: {peak_vram_mb:.2f} MB")
+
+''' Parameters Ran '''
+total_parameters = sum(para.numel() for para in model.parameters())
+print(f"Parameters ran on validation: {total_parameters}")

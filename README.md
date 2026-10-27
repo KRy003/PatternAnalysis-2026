@@ -78,7 +78,7 @@ Peak VRAM: 674.42 MB
 Parameters ran on validation: 1925190
 
 Parameter 2 (Run Time):
-Running these results fresh gave a processing time of 80.74 milliseconds per image (running just once) however repeated runs showed that time per image actually dropped quite significantly. A second run of predict.py showed it goes to 20.43 milliseconds, and even further testing it can go down to roughly 18.21 (The lowest time after 10 runs). This would obviously change per system however it shows a rough average processing time around 20 millisecond per image.
+Running these results fresh gave a processing time of 1.19ms
 
 Parameter 3 (Peak VRam):
 Running the results gave a constant Peak VRAM of 674.42 MB of data per run of predict.py
@@ -87,9 +87,8 @@ Improved U-Net Training
 -------------------- First Modification -------------------------
 NOTE: Due to some mistakes the individual scores of the First and Second Modifications on their own are wrong, However the scores showing both of them
 combined and onwards are correct.
+The first improvement was trying to add residuals to the convolution layer. 
 
-The first improvement was trying to add residuals to the convolution layer. After 20 epoches of training this
-one addition scored an average of 0.9303 across the test die
 Epoch 20/20, Loss: 0.0252, Time: 64.87s
 Validation Dice:
   Class 0: 0.9956
@@ -141,8 +140,6 @@ With both modifications together it actually showed an improvement over the base
     Peak VRAM: 738.76 MB
     Parameters ran on validation: 2013106
 
-As seen from above the Average dice score on the test set is 92.7% compared to the 90.74% from the original U-Net
-this means that its fails 26.85% less of the time.
 
 ----------- Modification 3 with Modification 2 and 1 all together
 This is probably one of the more harder modifications to understand but this one essentially has
@@ -171,33 +168,75 @@ Peak VRAM: 802.86 MB
 Parameters ran on validation: 2035397
 
 3. Feasibility review — draft, expand to approximately one page
-Technical feasibility. A 2D U-Net is a practical starting point for this dataset because its encoder captures context while skip connections retain spatial detail.
-The recorded validation Dice scores of roughly around 0.91 indicate substantial overlap on the current validation split. 
-Nevertheless, the split must be checked for patient-level independence, and results should be repeated under controlled settings to assess robustness.
+3.1 Technical Feasibility
 
-Computational feasibility. The recorded peak allocated GPU memory is 802.86MB under the tested conditions for the final Improved U-Net architecture.
-The increased memory usage of the attention model is measurable, while its mean validation Dice is slightly below the baseline.
-Corrected inference benchmarks and parameter counts are required to judge deployment cost.
+This project investigates the feasibility of using a 2D U-Net neural network to automatically segment anatomical structures in 
+MRI images for radiotherapy planning. The objective is to reduce the manual effort required for anatomical contouring while 
+providing predictions that clinicians can review and correct.
+The baseline U-Net achieved a mean validation Dice score of 91.50% and a reported test Dice score of 92.69%. These results 
+demonstrate that the base model can learn meaningful anatomical features quite well.
+Three architectural modifications were investigated: residual connections, deep supervision and attention gates. The final 
+architecture incorporating all three achieved a reported test Dice score of 93.28%, an improvement of 0.59 percentage points 
+over the baseline. However, its mean validation Dice was 91.35%, slightly below the baseline's 91.50%.
 
-Clinical feasibility. Overlap metrics alone are insufficient to establish whether a segmentation is safe for radiotherapy planning.
-Errors near small structures and organ boundaries may be more important than errors in large, easy regions.
-This project has not demonstrated clinical safety, external generalization, or clinician acceptance.
-Any use would require professional verification and further validation on independent patients and institutions.
+3.2 Computational Feasibility
 
-Project feasibility. The modular PyTorch implementation makes it possible to compare architectural changes using common loaders and evaluation functions.
-The main remaining tasks are to confirm data provenance and splitting, rerun a clean held-out test comparison, collect corrected resource measurements, and analyze representative failures.
+The baseline U-Net contained 1,925,190 parameters, with a measured average forward-pass inference time of 1.19 
+milliseconds per image and peak GPU memory allocation of 674.42 MB.
+The final improved architecture contained 2,035,397 parameters, required 1.60 milliseconds per image, and reached 
+802.86 MB of peak GPU memory allocation.
+Compared with the baseline, this represents approximately:
+      - 5.7% more parameters
+      - 34.5% longer measured inference time per image
+      - 19.0% greater peak GPU memory allocation
+Note the reported inference times represent model forward-pass measurements and do not include the complete processing 
+workflow, such as loading images, preprocessing, visualization and clinician review. Consequently, these results should 
+not be interpreted as total clinical processing times.
+
+3.3 Clinical Feasibility
+
+The intended application is to assist radiotherapy professionals by generating preliminary anatomical contours that can be 
+reviewed before use in treatment planning.
+Although the experimental Dice scores are promising, they do not establish that the system is clinically safe. Segmentation 
+errors involving small anatomical structures which were class 4 and 5, which had a dice score of 0.82 - 0.88 show the greatest
+risk and could potentially have serious consequences without having an experts opinion.
+
+The model also processes individual 2D slices rather than complete 3D MRI volumes (hard task). This reduces computational complexity but 
+limits its ability to incorporate anatomical continuity between adjacent slices.
+As stated earlier, before any real-world clinical application, the system would require independent validation and mandatory review of its 
+predictions by qualified professionals before any operations could be performed. So strictly speaking this tool
+should only be used as a time saving tool and not a replacement for the professional in this case.
+
+3.4 Overall Feasibility
+
+The results suggest that a 2D U-Net is computationally practical and technically promising as a research 
+prototype for MRI anatomical segmentation.
+The final improved model achieved the highest reported test Dice, but this improvement was relatively small 
+and accompanied by increased inference time, parameter count and GPU memory requirements. Furthermore, 
+the improved model did not outperform the baseline on mean validation Dice while training.
+Therefore, the additional architectural complexity cannot yet be considered conclusively beneficial.
+The standard U-Net remains a strong candidate because of its competitive segmentation performance and 
+lower computational requirements.
+Overall, the project demonstrates the potential of automated MRI segmentation as a clinical assistance tool, 
+but further validation and failure-case analysis are necessary before its suitability for clinical deployment can be established.
 
 4. Engineering recommendation — provisional
-Current recommendation: retain the standard 2D U-Net as the preferred baseline until the improved architectures demonstrate a reproducible advantage on clinically relevant structures or boundaries. In the recorded validation comparison, the baseline achieved a slightly higher mean Dice (0.9148) while using less GPU memory than the combined modified models. Attention gates produced small improvements in some classes but increased measured peak memory.
+Current recommendation: retain the standard 2D U-Net as the preferred baseline until the improved architectures demonstrate a reproducible 
+advantage on clinically relevant structures or boundaries. In the recorded validation comparison, the baseline achieved a slightly higher 
+mean Dice (0.915) while using less GPU memory than the combined modified models. Attention gates produced small improvements in some classes 
+but increased measured peak memory.
 
-This recommendation is provisional. A final decision should use held-out patient-level test results, per-class Dice/IoU, boundary error inspection, corrected inference latency, memory and parameter count. If the improved model consistently reduces important boundary errors, the additional computational cost may be justified even without a higher mean Dice.
+This recommendation is provisional. A final decision should use held-out patient-level test results, per-class Dice/IoU, boundary error 
+inspection, corrected inference latency, memory and parameter count. If the improved model consistently reduces important boundary errors, 
+the additional computational cost may be justified even without a higher mean Dice.
 
 5. AI Disclosure
 The AI that has been used quite a bit in this is the visual studio code auto complete AI and it has been able to
 auto complete alot of my Dataloading file and has helped with the module aswell although i did look up the
 general architecture that a 2D U-net should follow. 
 As for testing the AI code specifically it mostly comes from testing the algorithim all together
-Chatgpt has been used primarily for the ideas of the improved system and the correct implementation.
+Chatgpt was used for coming up with the ideas for the improved models and explaining the way they worked
+and what changes to the code would be required
 
 
 6. References
