@@ -16,12 +16,23 @@ import numpy as np
 import nibabel as nib
 import torch.nn.functional as F
 
+
+
 ''' Function Declarations '''
 def get_weights_path():
     """
     Returns the path to the weights file.
     """
-    return Path(__file__).resolve().parent / "unet_normal_model.pth"
+    # Training Path
+    #return Path(__file__).resolve().parent / "unet_normal_model.pth"
+    # Modification 1 Path
+    #return Path(__file__).resolve().parent / "Improved_UNET_MOD_1.pth"
+    # Modification 1 and 2 Path
+    #return Path(__file__).resolve().parent / "Improved_UNET_MOD_12.pth"
+    # Modification 1, 2 and 3 Path
+    return Path(__file__).resolve().parent / "Improved_UNET_MOD_123.pth"
+    # Basic UNET PATH
+    #return Path(__file__).resolve().parent / "UNET.pth"
 
 def load_model(model, path, device):
     """
@@ -46,6 +57,49 @@ def show_predictions(image, mask, prediction):
     plt.imshow(prediction, cmap='nipy_spectral')
     plt.title('Prediction')
     plt.axis('off')
+
+def show_failure_case(case, class_id):
+    image = case["image"].squeeze().numpy()
+    mask = case["mask"].numpy()
+    prediction = case["prediction"].numpy()
+
+    ground_truth = mask == class_id
+    predicted = prediction == class_id
+
+    true_positive = predicted & ground_truth
+    false_positive = predicted & ~ground_truth
+    false_negative = ~predicted & ground_truth
+
+    # RGB overlay: green=TP, red=FP, blue=FN
+    overlay = np.zeros((*mask.shape, 4), dtype=np.float32)
+
+    overlay[true_positive] = [0, 1, 0, 0.65]
+    overlay[false_positive] = [1, 0, 0, 0.8]
+    overlay[false_negative] = [0, 0.4, 1, 0.8]
+
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
+
+    axes[0].imshow(image, cmap="gray")
+    axes[0].set_title("Original MRI")
+
+    axes[1].imshow(mask, cmap="tab10", vmin=0, vmax=5)
+    axes[1].set_title("Ground Truth")
+
+    axes[2].imshow(prediction, cmap="tab10", vmin=0, vmax=5)
+    axes[2].set_title("Prediction")
+
+    axes[3].imshow(image, cmap="gray")
+    axes[3].imshow(overlay)
+    axes[3].set_title(
+        f"Class {class_id} errors\n"
+        f"Dice: {case['dice']:.4f}"
+    )
+
+    for ax in axes:
+        ax.axis("off")
+
+    plt.tight_layout()
+    plt.show()
 
 def run_weights_on_data(dataloader, device, model, num_classes, intersections, pred_counts, mask_counts):
     model.eval()
@@ -107,7 +161,55 @@ def run_weights_on_data(dataloader, device, model, num_classes, intersections, p
         f"Average inference time per image: "
         f"{average_time * 1000:.2f} ms"
     )
-        
+
+
+def find_worst_cases(model, dataloader, device, class_id=4, top_k=5):
+    model.eval()
+    cases = []
+    image_index = 0
+
+    with torch.inference_mode():
+        for images, masks in dataloader:
+            images = images.to(device).float()
+            masks = masks.to(device).long()
+
+            logits = model(images)
+            predictions = torch.argmax(logits, dim=1)
+
+            for i in range(images.size(0)):
+                pred = predictions[i]
+                mask = masks[i]
+
+                pred_class = pred == class_id
+                mask_class = mask == class_id
+
+                intersection = (pred_class & mask_class).sum().item()
+                denominator = (
+                    pred_class.sum().item()
+                    + mask_class.sum().item()
+                )
+
+                # Ignore slices where the class is absent
+                # from both prediction and ground truth.
+                if denominator == 0:
+                    image_index += 1
+                    continue
+
+                dice = (2 * intersection) / denominator
+
+                cases.append({
+                    "index": image_index,
+                    "dice": dice,
+                    "image": images[i].cpu().clone(),
+                    "mask": mask.cpu().clone(),
+                    "prediction": pred.cpu().clone()
+                })
+
+                image_index += 1
+
+    cases.sort(key=lambda case: case["dice"])
+
+    return cases[:top_k]
 
 '''
 ############ Main Code ############
@@ -164,3 +266,19 @@ print(f"Peak VRAM: {peak_vram_mb:.2f} MB")
 ''' Parameters Ran '''
 total_parameters = sum(para.numel() for para in model.parameters())
 print(f"Parameters ran on validation: {total_parameters}")
+
+worst_cases = find_worst_cases(
+    model,
+    hip_val_loader,
+    device,
+    class_id=4,
+    top_k=5
+)
+
+for case in worst_cases:
+    print(
+        f"Image {case['index']}: "
+        f"Dice = {case['dice']:.4f}"
+    )
+for case in worst_cases:
+    show_failure_case(case, class_id=4)

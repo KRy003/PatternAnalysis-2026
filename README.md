@@ -87,7 +87,8 @@ Improved U-Net Training
 -------------------- First Modification -------------------------
 NOTE: Due to some mistakes the individual scores of the First and Second Modifications on their own are wrong, However the scores showing both of them
 combined and onwards are correct.
-The first improvement was trying to add residuals to the convolution layer. 
+The first improvement was trying to add residuals to the convolution layer. The convolutional block adds its transformed features to a shortcut 
+projection of the original input, helping gradient flow through the network.
 
 Epoch 20/20, Loss: 0.0252, Time: 64.87s
 Validation Dice:
@@ -117,7 +118,10 @@ Parameters ran on validation: 2013106
 With increase VRAM and lower Dice Scores it's clear the residual setup currently implemented is not the best
 
 ----------- Experiment Modification 1 and modification 2 together -----------------
-With both modifications together it actually showed an improvement over the base U-Net architecture
+With both modifications together it actually showed an improvement over the base U-Net architecture.
+Auxiliary segmentation heads at intermediate decoder stages contribute additional loss terms with each
+convolution upsample step 
+during training, encouraging useful predictions at multiple scales.
     Validation Dice:
     Class 0: 0.9961
     Class 1: 0.9824
@@ -166,6 +170,56 @@ Average Dice Score: 0.9328
 Average Dice Percentage: 93.28%
 Peak VRAM: 802.86 MB
 Parameters ran on validation: 2035397
+
+------------- Failure Cases -----------------------
+The failure case images can be found in the image folders
+The images labled "Case # 'Model'" look at each different class
+found in only 1 particular image to look at each failed pixel for each class
+and the "'model' Image #" are used just to look at the ground truth and the
+prediction model for different images
+
+To investigate the limitations of the segmentation models, several MRI slices were visually 
+examined using their original images, ground-truth segmentation masks, predicted masks and 
+class-specific error overlays. The analysis focuses on differences between the standard 
+U-Net and the improved architecture incorporating residual connections, deep supervision and attention gates.
+
+        Case 1 — Small Anatomical Regions
+
+Both architectures successfully identify the larger anatomical regions, producing segmentation
+masks that visually resemble the ground truth. However, differences are visible in the smaller
+central structures, particularly around their boundaries and relative positions.
+These results suggest that smaller anatomical regions may be more sensitive to 
+architectural changes than large, continuous structures.
+
+        Case 2 — Boundary Accuracy
+
+The baseline and improved models both identify the major anatomical regions, but their predicted
+boundaries differ from the ground truth in several locations. These errors may arise from the 
+difficulty of distinguishing neighbouring tissues with similar MRI intensity characteristics.
+
+        Case 3 — Class Confusion
+
+The predictions show differences in how pixels are assigned between neighbouring anatomical 
+classes, particularly around the central structures. These differences may represent false-positive
+or false-negative segmentation errors, depending on the selected class.
+This case highlights the importance of examining individual anatomical classes rather than relying exclusively on mean Dice.
+
+        Case 4 — Small-Region Detection
+
+A small region visible in the ground-truth mask is absent or differently located in the predicted
+segmentation. This demonstrates a limitation of the model when identifying small anatomical regions. 
+Such errors may contribute relatively little to the overall segmentation score while being important
+for the accuracy of individual classes.
+
+        Overall Findings
+
+The visual analysis suggests that both architectures are capable of identifying the major anatomical regions.
+However, errors remain around boundaries and smaller structures. The architectural modifications change the
+predicted segmentation in several locations, although the images alone do not establish that one model is
+consistently more accurate. Further class-specific Dice measurements and quantitative false-positive/false-negative
+comparisons are required to determine whether the additional model complexity produces meaningful improvements.
+
+
 
 3. Feasibility review — draft, expand to approximately one page
 3.1 Technical Feasibility
@@ -236,7 +290,8 @@ auto complete alot of my Dataloading file and has helped with the module aswell 
 general architecture that a 2D U-net should follow. 
 As for testing the AI code specifically it mostly comes from testing the algorithim all together
 Chatgpt was used for coming up with the ideas for the improved models and explaining the way they worked
-and what changes to the code would be required
+and what changes to the code would be required. It also produced the code for visualising the failure case plots
+and alot of the summary for the README.md file
 
 
 6. References
